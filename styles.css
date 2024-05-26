@@ -1,0 +1,24 @@
+/* Style the canvas container */
+#canvas-container {
+    position: relative;
+    display: inline-block;
+  }
+  
+  /* Style the canvas element */
+  #reflay {
+    display: block;
+  }
+  
+  /* Style the grid lines */
+  .grid-line {
+    stroke: yellow; /* Set the line color to yellow */
+    stroke-width: 2px; /* Set the line width */
+  }
+  
+  /* Style the bounding box corners */
+  .bounding-box-corner {
+    fill: yellow; /* Set the corner color to yellow */
+    stroke: yellow; /* Set the corner outline color to yellow */
+    stroke-width: 2px; /* Set the corner outline width */
+  }
+  
