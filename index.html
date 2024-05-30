@@ -4,14 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Face Detection</title>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            position: absolute;
+        }
+        #video {
+            position: relative;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/dist/face-api.js"></script>
     <script defer src="script.js"></script>
 </head>
 <body>
-    <div id="canvas-container">
-        <img src="images/test-me.png" id="originalImg" alt="Test Image" style="display: none;">
-        <canvas id="reflay"></canvas>
-    </div>
+    <video id="video" width="720" height="560" autoplay muted></video>
+    <canvas id="reflay"></canvas>
 </body>
 </html>

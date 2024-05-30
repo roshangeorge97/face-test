@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    const img = document.getElementById('originalImg');
+    const video = document.getElementById('video');
     const canvas = document.getElementById('reflay');
     const canvasCtx = canvas.getContext('2d');
 
@@ -11,72 +11,69 @@ document.addEventListener('DOMContentLoaded', async () => {
         await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
     };
 
+    const startVideo = () => {
+        navigator.mediaDevices.getUserMedia({ video: {} })
+            .then(stream => {
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                };
+            })
+            .catch(err => console.error('Error accessing webcam: ', err));
+    };
+
     const detectFaces = async () => {
-        // Draw the original image on the canvas
-        canvas.width = img.width;
-        canvas.height = img.height;
-        canvasCtx.drawImage(img, 0, 0);
+        const displaySize = { width: video.videoWidth, height: video.videoHeight };
+        faceapi.matchDimensions(canvas, displaySize);
 
-        // Detect faces and draw them on the canvas
-        let faceDescriptions = await faceapi
-            .detectAllFaces(img)
-            .withFaceLandmarks();
+        setInterval(async () => {
+            const detections = await faceapi.detectAllFaces(video, new faceapi.SsdMobilenetv1Options()).withFaceLandmarks();
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
 
-        // Iterate through detected faces
-        faceDescriptions.forEach(faceDescription => {
-            const box = faceDescription.detection.box;
-            const { x, y, width, height } = box;
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+            const drawnLines = new Set();
 
-            // Define corner coordinates with a slight offset inwards
-            const cornerSize = 20; // Adjust corner size as needed
-            const topLeftX = x;
-            const topLeftY = y;
-            const topRightX = x + width - cornerSize;
-            const topRightY = y;
-            const bottomLeftX = x;
-            const bottomLeftY = y + height - cornerSize;
-            const bottomRightX = x + width - cornerSize;
-            const bottomRightY = y + height - cornerSize;
+            resizedDetections.forEach(detection => {
+                const landmarks = detection.landmarks.positions;
+                canvasCtx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
 
-            // Draw corner lines in the provided shape
-            canvasCtx.strokeStyle = 'yellow'; // Change color as desired
-            canvasCtx.lineWidth = 4;
-            canvasCtx.beginPath();
-            canvasCtx.moveTo(topLeftX, topLeftY + cornerSize);
-            canvasCtx.lineTo(topLeftX, topLeftY);
-            canvasCtx.lineTo(topLeftX + cornerSize, topLeftY);
-            canvasCtx.stroke();
-            canvasCtx.beginPath();
-            canvasCtx.moveTo(topRightX - cornerSize, topRightY);
-            canvasCtx.lineTo(topRightX, topRightY);
-            canvasCtx.lineTo(topRightX, topRightY + cornerSize);
-            canvasCtx.stroke();
-            canvasCtx.beginPath();
-            canvasCtx.moveTo(bottomLeftX, bottomLeftY - cornerSize);
-            canvasCtx.lineTo(bottomLeftX, bottomLeftY);
-            canvasCtx.lineTo(bottomLeftX + cornerSize, bottomLeftY);
-            canvasCtx.stroke();
-            canvasCtx.beginPath();
-            canvasCtx.moveTo(bottomRightX - cornerSize, bottomRightY);
-            canvasCtx.lineTo(bottomRightX, bottomRightY);
-            canvasCtx.lineTo(bottomRightX, bottomRightY - cornerSize);
-            canvasCtx.stroke();
+                for (let i = 0; i < landmarks.length; i++) {
+                    const pointA = landmarks[i];
 
-            // Draw landmark dots
-            const landmarks = faceDescription.landmarks;
-            canvasCtx.fillStyle = 'green'; // Change color as desired
-            const dotSize = 2; // Adjust dot size as needed
+                    let closestPoints = landmarks
+                        .map((point, index) => ({
+                            index,
+                            distance: Math.sqrt(
+                                Math.pow(pointA.x - point.x, 2) +
+                                Math.pow(pointA.y - point.y, 2)
+                            )
+                        }))
+                        .sort((a, b) => a.distance - b.distance)
+                        .slice(1, 5);
 
-            for (let j = 0; j < landmarks.positions.length; j++) {
-                const x = landmarks.positions[j].x;
-                const y = landmarks.positions[j].y;
-                canvasCtx.beginPath();
-                canvasCtx.arc(x, y, dotSize, 0, 2 * Math.PI);
-                canvasCtx.fill();
-            }
-        });
+                    closestPoints.forEach(point => {
+                        const pointB = landmarks[point.index];
+                        const lineKey = `${pointA.x},${pointA.y}-${pointB.x},${pointB.y}`;
+                        const reverseLineKey = `${pointB.x},${pointB.y}-${pointA.x},${pointA.y}`;
+
+                        if (!drawnLines.has(lineKey) && !drawnLines.has(reverseLineKey)) {
+                            canvasCtx.beginPath();
+                            canvasCtx.moveTo(pointA.x, pointA.y);
+                            canvasCtx.lineTo(pointB.x, pointB.y);
+                            canvasCtx.stroke();
+
+                            drawnLines.add(lineKey);
+                            drawnLines.add(reverseLineKey);
+                        }
+                    });
+                }
+            });
+        }, 100);
     };
 
     await loadModels();
-    await detectFaces();
+    startVideo();
+    video.addEventListener('play', detectFaces);
 });
